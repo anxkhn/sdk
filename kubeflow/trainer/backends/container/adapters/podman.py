@@ -209,12 +209,14 @@ class PodmanClientAdapter(BaseContainerClientAdapter):
 
     def list_containers(self, filters: dict[str, list[str]] | None = None) -> list[dict]:
         """List Podman containers with optional filters."""
-        # Work-around for https://github.com/containers/podman-py/issues/542
-        for k, v in filters.items():
-            if len(v) == 1:
-                filters[k] = v[0]
+        # Work-around for https://github.com/containers/podman-py/issues/542.
+        # Build a normalized copy so the caller's dict is never mutated, and skip
+        # the workaround entirely when filters is None (the documented default).
+        normalized_filters = None
+        if filters:
+            normalized_filters = {k: (v[0] if len(v) == 1 else v) for k, v in filters.items()}
         try:
-            containers = self.client.containers.list(all=True, filters=filters)
+            containers = self.client.containers.list(all=True, filters=normalized_filters)
             result = []
             for c in containers:
                 # The container status needs to be reloaded when the container
